@@ -5,12 +5,18 @@ import (
     "fmt"
     "strings"
 		"os"
+		"github.com/x6Nenko/pokedexcli/internal/pokeapi"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(cfg *config, client *pokeapi.Client) error
+}
+
+type config struct {
+	next 		 *string
+	previous *string
 }
 
 func getCommands() map[string]cliCommand {
@@ -25,10 +31,27 @@ func getCommands() map[string]cliCommand {
 			description: "Exit the Pokedex",
 			callback:    commandExit,
 		},
+		"map": {
+			name:        "map",
+			description: "Get the next page of locations",
+			callback:    commandMap,
+		},
+		"mapb": {
+			name:        "mapb",
+			description: "Get the previous page of locations",
+			callback:    commandMapb,
+		},
 	}
 }
 
 func startRepl() {
+	// Init client once that stays live for the entire session
+	apiClient := pokeapi.NewClient("https://pokeapi.co/api/v2/location-area")
+	cfg := &config{
+		next:     nil,
+		previous: nil,
+	}
+
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
@@ -46,7 +69,7 @@ func startRepl() {
 
 		cmd, exists := getCommands()[command]  // Try to get the command from map
 		if exists {                            // Did we find it?
-			err := cmd.callback()       		 		 // Call the function stored in callback
+			err := cmd.callback(cfg, apiClient)  // Call the function stored in callback
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -58,14 +81,14 @@ func startRepl() {
 	}
 }
 
-func commandExit() error {
+func commandExit(cfg *config, client *pokeapi.Client) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
 
-func commandHelp() error {
+func commandHelp(cfg *config, client *pokeapi.Client) error {
 	fmt.Println()
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
@@ -75,6 +98,59 @@ func commandHelp() error {
 	}
 	fmt.Println()
 	return nil
+}
+
+func commandMap(cfg *config, client *pokeapi.Client) error {
+    var urlToFetch string
+    
+    if cfg.next == nil {
+        urlToFetch = "https://pokeapi.co/api/v2/location-area"
+    } else {
+        urlToFetch = *cfg.next
+    }
+    
+    data, err := client.FetchItems(urlToFetch)
+
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		cfg.next = data.Next
+		cfg.previous = data.Previous
+
+		for _, value := range data.Results {
+			fmt.Println(value.Name)
+		}
+
+    return nil
+}
+
+func commandMapb(cfg *config, client *pokeapi.Client) error {
+    var urlToFetch string
+    
+    if cfg.previous == nil {
+				fmt.Println("you're on the first page")
+        return nil
+    } else {
+        urlToFetch = *cfg.previous
+    }
+    
+    data, err := client.FetchItems(urlToFetch)
+
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+
+		cfg.next = data.Next
+		cfg.previous = data.Previous
+
+		for _, value := range data.Results {
+			fmt.Println(value.Name)
+		}
+
+    return nil
 }
 
 func cleanInput(text string) []string {
