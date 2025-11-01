@@ -1,7 +1,10 @@
 package main
 
-import ( 
-	"strings"
+import (
+    "bufio"
+    "fmt"
+    "strings"
+		"os"
 )
 
 func cleanInput(text string) []string {
@@ -15,4 +18,16 @@ func cleanInput(text string) []string {
 	words := strings.Fields(trimmed)
 
 	return words
+}
+
+func startRepl() {
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		fmt.Print("Pokedex > ")
+		scanner.Scan()           // Wait for user input
+		input := scanner.Text()  // Get the input as a string
+		cleanInput := cleanInput(input)
+		fmt.Println("Your command was:", cleanInput[0])
+	}
 }
