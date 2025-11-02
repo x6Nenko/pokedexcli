@@ -24,6 +24,7 @@ func NewClient(interval time.Duration, baseURL string) *Client {
 	}
 }
 
+// =============
 // ResponseData represents the structure you expect from the API (list of areas)
 type ResponseData struct {
 	Count    int     `json:"count"`
@@ -37,6 +38,7 @@ type Item struct {
 	URL  string `json:"url"`
 }
 
+// =============
 // Explore pokemons in area
 type LocationDetail struct {
 	PokemonEncounters []PokemonEncounter `json:"pokemon_encounters"`
@@ -47,9 +49,16 @@ type PokemonEncounter struct {
 	Pokemon Pokemon `json:"pokemon"`
 }
 
-// The pokemon info
+// The pokemon name
 type Pokemon struct {
 	Name string `json:"name"`
+}
+
+// =============
+// Get pokemon details info
+type PokemonDetails struct {
+	Name string `json:"name"`
+	BaseExperience int `json:"base_experience"`
 }
 
 // FetchItems makes a GET request to the specified URL (GETS LIST OF AREAS)
@@ -92,7 +101,7 @@ func (c *Client) FetchItems(url string) (*ResponseData, error) {
 	return &data, nil
 }
 
-// FetchItems makes a GET request to the specified URL (GETS LIST OF POKEMONS IN THE AREA)
+// GET request to the specified URL (GETS LIST OF POKEMONS IN THE AREA)
 func (c *Client) FetchLocationDetail(url string) (*LocationDetail, error) {
 	 // Try cache first
 	if cachedData, found := c.cache.Get(url); found {
@@ -124,6 +133,46 @@ func (c *Client) FetchLocationDetail(url string) (*LocationDetail, error) {
 
 	// Step 3: Unmarshal JSON into struct
 	var data LocationDetail
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &data, nil
+}
+
+// GET request to the specified URL (GETS POKEMON DATA)
+func (c *Client) FetchPokemon(url string) (*PokemonDetails, error) {
+	 // Try cache first
+	if cachedData, found := c.cache.Get(url); found {
+		var data PokemonDetails
+		err := json.Unmarshal(cachedData, &data) // cachedData - bytes
+		if err != nil {
+			return nil, err
+		}
+		// fmt.Println("===== Using cached data =====")
+		return &data, nil
+	}
+
+	// fmt.Println("===== New Fetch =====")
+
+	// Step 1: Make HTTP request
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close() // Always close the body!
+
+	// Step 2: Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	c.cache.Add(url, body)
+
+	// Step 3: Unmarshal JSON into struct
+	var data PokemonDetails
 	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return nil, err

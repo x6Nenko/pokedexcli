@@ -7,6 +7,7 @@ import (
 	"os"
 	"github.com/x6Nenko/pokedexcli/internal/pokeapi"
 	"time"
+	"math/rand"
 )
 
 type cliCommand struct {
@@ -18,6 +19,7 @@ type cliCommand struct {
 type config struct {
 	next 		 *string
 	previous *string
+	pokedex  map[string]pokeapi.PokemonDetails
 }
 
 func getCommands() map[string]cliCommand {
@@ -43,9 +45,14 @@ func getCommands() map[string]cliCommand {
 			callback:    commandMapb,
 		},
 		"explore": {
-			name:        "explore",
+			name:        "explore <area_name>",
 			description: "Explore a location",
 			callback:    commandExplore,
+		},
+		"catch": {
+			name:        "catch <pokemon_name>",
+			description: "Attempt to catch a pokemon",
+			callback:    commandCatch,
 		},
 	}
 }
@@ -57,6 +64,7 @@ func startRepl(interval time.Duration) {
 	cfg := &config{
 		next:     nil,
 		previous: nil,
+		pokedex: make(map[string]pokeapi.PokemonDetails),
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -181,6 +189,54 @@ func commandExplore(args []string, cfg *config, client *pokeapi.Client) error {
 
 	for _, value := range data.PokemonEncounters {
 		fmt.Printf(" - %s\n", value.Pokemon.Name)
+	}
+
+	return nil
+}
+
+func commandCatch(args []string, cfg *config, client *pokeapi.Client) error {
+	if len(args) == 0 {
+		fmt.Println("Usage: catch <pokemon_name>")
+		return nil
+	}
+
+	fmt.Printf("Throwing a Pokeball at %s...\n", args[0])
+
+	var urlToFetch = "https://pokeapi.co/api/v2/pokemon/" + args[0]
+	
+	data, err := client.FetchPokemon(urlToFetch)
+
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	pokemonName := data.Name
+	baseExperience := data.BaseExperience
+
+	// Generate a random number between 0-99
+	roll := rand.Intn(100)
+	
+	// Calculate success threshold based on difficulty (baseExperience)
+	// Lower threshold = harder to succeed
+	successThreshold := 100 - (baseExperience / 5)
+
+	catchResult := roll >= successThreshold
+
+	if catchResult == true {
+		// Checking if a pokemon already caught
+		_, exists := cfg.pokedex[pokemonName]
+		if exists {
+			fmt.Printf("%s was already in your pokedex, go catch someone else...\n", pokemonName)
+		} else {
+			cfg.pokedex[pokemonName] = pokeapi.PokemonDetails{
+				Name: pokemonName,
+				BaseExperience: baseExperience,
+			}
+			fmt.Printf("%s was caught!\n", pokemonName)
+		}
+	} else {
+		fmt.Printf("%s escaped!\n", pokemonName)
 	}
 
 	return nil
