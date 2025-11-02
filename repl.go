@@ -59,6 +59,11 @@ func getCommands() map[string]cliCommand {
 			description: "View details about a caught Pokemon",
 			callback:    commandInspect,
 		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "View the list of caught Pokemons",
+			callback:    commandPokedex,
+		},
 	}
 }
 
@@ -226,7 +231,7 @@ func commandCatch(args []string, cfg *config, client *pokeapi.Client) error {
 	// Lower threshold = harder to succeed
 	successThreshold := 100 - (baseExperience / 5)
 
-	catchResult := roll >= successThreshold
+	catchResult := roll <= successThreshold
 
 	if catchResult == true {
 		// Checking if a pokemon already caught
@@ -280,6 +285,18 @@ func commandInspect(args []string, cfg *config, client *pokeapi.Client) error {
 		}
 	} else {
 		fmt.Printf("You have not caught the %s yet ...\n", pokemonName)
+	}
+
+	return nil
+}
+
+func commandPokedex(args []string, cfg *config, client *pokeapi.Client) error {
+	if len(cfg.pokedex) == 0 {
+		fmt.Println("Your pokedex is empty...")
+	}
+
+	for _, pokemon := range cfg.pokedex {
+		fmt.Printf("  - %s\n", pokemon.Name)
 	}
 
 	return nil
