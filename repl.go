@@ -1,11 +1,12 @@
 package main
 
 import (
-    "bufio"
-    "fmt"
-    "strings"
-		"os"
-		"github.com/x6Nenko/pokedexcli/internal/pokeapi"
+	"bufio"
+	"fmt"
+	"strings"
+	"os"
+	"github.com/x6Nenko/pokedexcli/internal/pokeapi"
+	"time"
 )
 
 type cliCommand struct {
@@ -44,9 +45,9 @@ func getCommands() map[string]cliCommand {
 	}
 }
 
-func startRepl() {
+func startRepl(interval time.Duration) {
 	// Init client once that stays live for the entire session
-	apiClient := pokeapi.NewClient("https://pokeapi.co/api/v2/location-area")
+	apiClient := pokeapi.NewClient(interval, "https://pokeapi.co/api/v2/location-area")
 	cfg := &config{
 		next:     nil,
 		previous: nil,
