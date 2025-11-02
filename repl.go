@@ -12,7 +12,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(cfg *config, client *pokeapi.Client) error
+	callback    func(args []string, cfg *config, client *pokeapi.Client) error
 }
 
 type config struct {
@@ -42,12 +42,18 @@ func getCommands() map[string]cliCommand {
 			description: "Get the previous page of locations",
 			callback:    commandMapb,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Explore a location",
+			callback:    commandExplore,
+		},
 	}
 }
 
 func startRepl(interval time.Duration) {
 	// Init client once that stays live for the entire session
 	apiClient := pokeapi.NewClient(interval, "https://pokeapi.co/api/v2/location-area")
+
 	cfg := &config{
 		next:     nil,
 		previous: nil,
@@ -67,10 +73,11 @@ func startRepl(interval time.Duration) {
 		}
 
 		command := cleanInput[0]
+		args := cleanInput[1:]
 
 		cmd, exists := getCommands()[command]  // Try to get the command from map
 		if exists {                            // Did we find it?
-			err := cmd.callback(cfg, apiClient)  // Call the function stored in callback
+			err := cmd.callback(args, cfg, apiClient)  // Call the function stored in callback
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -82,14 +89,14 @@ func startRepl(interval time.Duration) {
 	}
 }
 
-func commandExit(cfg *config, client *pokeapi.Client) error {
+func commandExit(args []string, cfg *config, client *pokeapi.Client) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
 
-func commandHelp(cfg *config, client *pokeapi.Client) error {
+func commandHelp(args []string, cfg *config, client *pokeapi.Client) error {
 	fmt.Println()
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
@@ -101,57 +108,82 @@ func commandHelp(cfg *config, client *pokeapi.Client) error {
 	return nil
 }
 
-func commandMap(cfg *config, client *pokeapi.Client) error {
-    var urlToFetch string
-    
-    if cfg.next == nil {
-        urlToFetch = "https://pokeapi.co/api/v2/location-area"
-    } else {
-        urlToFetch = *cfg.next
-    }
-    
-    data, err := client.FetchItems(urlToFetch)
+func commandMap(args []string, cfg *config, client *pokeapi.Client) error {
+	var urlToFetch string
+	
+	if cfg.next == nil {
+		urlToFetch = "https://pokeapi.co/api/v2/location-area"
+	} else {
+		urlToFetch = *cfg.next
+	}
+	
+	data, err := client.FetchItems(urlToFetch)
 
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
+	if err != nil {
+	fmt.Println(err)
+	return err
+	}
 
-		cfg.next = data.Next
-		cfg.previous = data.Previous
+	cfg.next = data.Next
+	cfg.previous = data.Previous
 
-		for _, value := range data.Results {
-			fmt.Println(value.Name)
-		}
+	for _, value := range data.Results {
+		fmt.Println(value.Name)
+	}
 
-    return nil
+	return nil
 }
 
-func commandMapb(cfg *config, client *pokeapi.Client) error {
-    var urlToFetch string
-    
-    if cfg.previous == nil {
-				fmt.Println("you're on the first page")
-        return nil
-    } else {
-        urlToFetch = *cfg.previous
-    }
-    
-    data, err := client.FetchItems(urlToFetch)
+func commandMapb(args []string, cfg *config, client *pokeapi.Client) error {
+	var urlToFetch string
+	
+	if cfg.previous == nil {
+		fmt.Println("you're on the first page")
+		return nil
+	} else {
+		urlToFetch = *cfg.previous
+	}
+	
+	data, err := client.FetchItems(urlToFetch)
 
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
 
-		cfg.next = data.Next
-		cfg.previous = data.Previous
+	cfg.next = data.Next
+	cfg.previous = data.Previous
 
-		for _, value := range data.Results {
-			fmt.Println(value.Name)
-		}
+	for _, value := range data.Results {
+		fmt.Println(value.Name)
+	}
 
-    return nil
+	return nil
+}
+
+func commandExplore(args []string, cfg *config, client *pokeapi.Client) error {
+	if len(args) == 0 {
+		fmt.Println("Usage: explore <area_name>")
+		return nil
+	}
+
+	fmt.Printf("Exploring %s...\n", args[0])
+	fmt.Println("Found Pokemon:")
+
+	var urlToFetch = "https://pokeapi.co/api/v2/location-area/" + args[0]
+	
+	data, err := client.FetchLocationDetail(urlToFetch)
+
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	for _, value := range data.PokemonEncounters {
+		fmt.Printf(" - %s\n", value.Pokemon.Name)
+	}
+
+	return nil
 }
 
 func cleanInput(text string) []string {
