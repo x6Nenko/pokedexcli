@@ -54,6 +54,11 @@ func getCommands() map[string]cliCommand {
 			description: "Attempt to catch a pokemon",
 			callback:    commandCatch,
 		},
+		"inspect": {
+			name:        "inspect <pokemon_name>",
+			description: "View details about a caught Pokemon",
+			callback:    commandInspect,
+		},
 	}
 }
 
@@ -216,7 +221,7 @@ func commandCatch(args []string, cfg *config, client *pokeapi.Client) error {
 
 	// Generate a random number between 0-99
 	roll := rand.Intn(100)
-	
+
 	// Calculate success threshold based on difficulty (baseExperience)
 	// Lower threshold = harder to succeed
 	successThreshold := 100 - (baseExperience / 5)
@@ -230,13 +235,51 @@ func commandCatch(args []string, cfg *config, client *pokeapi.Client) error {
 			fmt.Printf("%s was already in your pokedex, go catch someone else...\n", pokemonName)
 		} else {
 			cfg.pokedex[pokemonName] = pokeapi.PokemonDetails{
-				Name: pokemonName,
+				Name:           pokemonName,
 				BaseExperience: baseExperience,
+				Height:         data.Height,
+				Weight:         data.Weight,
+				Stats:          data.Stats,
+				Types:          data.Types,
 			}
 			fmt.Printf("%s was caught!\n", pokemonName)
 		}
 	} else {
 		fmt.Printf("%s escaped!\n", pokemonName)
+	}
+
+	return nil
+}
+
+func commandInspect(args []string, cfg *config, client *pokeapi.Client) error {
+	if len(args) == 0 {
+		fmt.Println("Usage: inspect <pokemon_name>")
+		return nil
+	}
+
+	pokemonName := args[0]
+	value, exists := cfg.pokedex[pokemonName]
+	
+	if exists {
+		// direct access
+		fmt.Printf("Name: %s\n", value.Name)
+		fmt.Printf("Height: %d\n", value.Height)
+		fmt.Printf("Weight: %d\n", value.Weight)
+		fmt.Printf("Base Experience: %d\n", value.BaseExperience)
+		
+		// Stats - slice of structs, need to access nested Stat.Name
+		fmt.Println("Stats:")
+		for _, statEntry := range value.Stats {
+			fmt.Printf("  -%s: %d\n", statEntry.Stat.Name, statEntry.BaseStat)
+		}
+		
+		// Types - slice of structs, need to access nested Type.Name
+		fmt.Println("Types:")
+		for _, typeEntry := range value.Types {
+			fmt.Printf("  - %s\n", typeEntry.Type.Name)
+		}
+	} else {
+		fmt.Printf("You have not caught the %s yet ...\n", pokemonName)
 	}
 
 	return nil
